@@ -4,7 +4,7 @@
  */
 
 #include "vulkan_hooks.hpp"
-#include "render_vk.hpp"
+#include "reshade_api_device.hpp"
 
 extern lockfree_table<void *, VkLayerInstanceDispatchTable, 16> g_instance_dispatch;
 extern lockfree_table<void *, reshade::vulkan::device_impl *, 16>  g_vulkan_devices;
@@ -34,6 +34,8 @@ VK_LAYER_EXPORT PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkDevice devic
 	HOOK_PROC(CreateShaderModule);
 	HOOK_PROC(CreateGraphicsPipelines);
 	HOOK_PROC(CreateComputePipelines);
+	HOOK_PROC(CreateSampler);
+	HOOK_PROC(DestroySampler);
 	HOOK_PROC(CreateRenderPass);
 	HOOK_PROC(CreateRenderPass2);
 	if (0 == strcmp(pName, "vkCreateRenderPass2KHR"))

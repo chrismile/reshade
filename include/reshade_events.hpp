@@ -56,30 +56,30 @@ namespace reshade
 		destroy_effect_runtime,
 
 		/// <summary>
+		/// Called before 'ID3D10Device::CreateSamplerState', 'ID3D11Device::CreateSamplerState', 'ID3D12Device::CreateSampler' or 'vkCreateSampler'.
+		/// <para>Callback function signature: <c>bool (api::device *device, const api::sampler_desc &amp;desc)</c></para>
+		/// </summary>
+		create_sampler,
+		/// <summary>
 		/// Called before 'IDirect3Device9::Create(...)Buffer/Texture', 'IDirect3DDevice9::Create(...)Surface(Ex)', 'ID3D10Device::CreateBuffer/Texture(...)', 'ID3D11Device::CreateBuffer/Texture(...)', 'ID3D12Device::Create(...)Resource', 'gl(Named)Buffer/Tex(ture)Storage(...)(Multisample)', 'gl(Named)RenderbufferStorage(Multisample) or 'vkCreateBuffer/Image'.
-		/// <para>Callback function signature: <c>bool (api::device *device, const api::resource_desc &desc, const api::subresource_data *initial_data, api::resource_usage initial_state)</c></para>
+		/// <para>Callback function signature: <c>bool (api::device *device, const api::resource_desc &amp;desc, const api::subresource_data *initial_data, api::resource_usage initial_state)</c></para>
 		/// </summary>
 		create_resource,
 		/// <summary>
 		/// Called before 'IDirect3DDevice9::Create(...)Surface(Ex)', 'ID3D10Device::Create(...)View', 'ID3D11Device::Create(...)View', 'ID3D12Device::Create(...)View', 'glTex(ture)Buffer', 'glTextureView(...)' or 'vkCreateBuffer/ImageView'.
-		/// <para>Callback function signature: <c>bool (api::device *device, api::resource resource, api::resource_usage usage_type, const api::resource_view_desc &desc)</c></para>
+		/// <para>Callback function signature: <c>bool (api::device *device, api::resource resource, api::resource_usage usage_type, const api::resource_view_desc &amp;desc)</c></para>
 		/// </summary>
 		create_resource_view,
 
 		/// <summary>
-		/// Called before 'ID3D10Device::Create(...)State', 'ID3D11Device::Create(...)State', 'ID3D12Device::Create(...)PipelineState' or 'vkCreate(...)Pipelines'.
-		/// <para>Callback function signature: <c>bool (api::device *device, const api::pipeline_desc &desc)</c></para>
+		/// Called before 'IDirect3DDevice9::Create(...)Shader', 'ID3D10Device::Create(...)(Shader/State)', 'ID3D11Device::Create(...)(Shader/State)', 'ID3D12Device::Create(...)PipelineState' or 'vkCreate(...)Pipelines'.
+		/// <para>Callback function signature: <c>bool (api::device *device, const api::pipeline_desc &amp;desc)</c></para>
 		/// </summary>
 		create_pipeline,
-		/// <summary>
-		/// Called before 'IDirect3DDevice9::Create(...)Shader', 'ID3D10Device::Create(...)Shader', 'ID3D11Device::Create(...)Shader', 'ID3D12Device::Create(...)PipelineState', 'glShaderSource' or 'vkCreateShaderModule'.
-		/// <para>Callback function signature: <c>bool (api::device *device, api::shader_type type, api::shader_format format, const char *entry_point, const void *code, size_t code_size)</c></para>
-		/// </summary>
-		create_shader_module,
 
 		/// <summary>
 		/// Called before 'ID3D10Device::UpdateSubresource' or 'ID3D11DeviceContext::UpdateSubresource'.
-		/// <para>Callback function signature: <c>bool (api::command_list *cmd_list, const void *data, api::resource dst, uint64_t dst_offset, uint64_t size)</c></para>
+		/// <para>Callback function signature: <c>bool (api::device *device, const void *data, api::resource dst, uint64_t dst_offset, uint64_t size)</c></para>
 		/// </summary>
 		/// <remarks>
 		/// Destination resource will be in the <see cref="resource_usage::copy_dest"/> state.
@@ -87,7 +87,7 @@ namespace reshade
 		upload_buffer_region,
 		/// <summary>
 		/// Called before 'ID3D10Device::UpdateSubresource' or 'ID3D11DeviceContext::UpdateSubresource'.
-		/// <para>Callback function signature: <c>bool (api::command_list *cmd_list, const void *data, uint32_t row_pitch, uint32_t slice_pitch, api::resource dst, uint32_t dst_subresource, const int32_t dst_box[6])</c></para>
+		/// <para>Callback function signature: <c>bool (api::device *device, const api::subresource_data &data, api::resource dst, uint32_t dst_subresource, const int32_t dst_box[6])</c></para>
 		/// </summary>
 		/// <remarks>
 		/// Destination resource will be in the <see cref="resource_usage::copy_dest"/> state.
@@ -175,24 +175,8 @@ namespace reshade
 		/// Called before 'IDirect3DDevice9::SetRenderTarget', 'IDirect3DDevice9::SetDepthStencilSurface', 'ID3D10Device::OMSetRenderTargets', 'ID3D11DeviceContext::OMSetRenderTargets(AndUnorderedAccessViews)', 'ID3D12GraphicsCommandList::OMSetRenderTargets', 'ID3D12GraphicsCommandList::EndRenderPass', 'glBindFramebuffer' or 'vkCmdEndRenderPass'.
 		/// <para>Callback function signature: <c>void (api::command_list *cmd_list)</c></para>
 		/// </summary>
-		end_render_pass,
+		finish_render_pass,
 
-		/// <summary>
-		/// Called before 'IDirect3DDevice9::StretchRect', 'glBlit(Named)Framebuffer' or 'vkCmdBlitImage'.
-		/// <para>Callback function signature: <c>bool (api::command_list *cmd_list, api::resource src, uint32_t src_subresource, const int32_t src_box[6], api::resource dst, uint32_t dst_subresource, const int32_t dst_box[6], api::texture_filter filter)</c></para>
-		/// </summary>
-		/// <remarks>
-		/// Source resource will be in the <see cref="resource_usage::copy_source"/> state. Destination resource will be in the <see cref="resource_usage::copy_dest"/> state.
-		/// </remarks>
-		blit,
-		/// <summary>
-		/// Called before 'IDirect3DDevice9::StretchRect', 'ID3D10Device::ResolveSubresource', 'ID3D11DeviceContext::ResolveSubresource', 'ID3D12GraphicsCommandList::ResolveSubresource', 'glBlit(Named)Framebuffer' or 'vkCmdResolveImage'.
-		/// <para>Callback function signature: <c>bool (api::command_list *cmd_list, api::resource src, uint32_t src_subresource, const int32_t src_offset[3], api::resource dst, uint32_t dst_subresource, const int32_t dst_offset[3], const uint32_t size[3], api::format format)</c></para>
-		/// </summary>
-		/// <remarks>
-		/// Source resource will be in the <see cref="resource_usage::resolve_source"/> state. Destination resource will be in the <see cref="resource_usage::resolve_dest"/> state.
-		/// </remarks>
-		resolve,
 		/// <summary>
 		/// Called before 'IDirect3DDevice9::UpdateTexture', 'ID3D10Device::CopyResource', 'ID3D11DeviceContext::CopyResource' or 'ID3D12GraphicsCommandList::CopyResource'.
 		/// <para>Callback function signature: <c>bool (api::command_list *cmd_list, api::resource src, api::resource dst)</c></para>
@@ -202,7 +186,7 @@ namespace reshade
 		/// </remarks>
 		copy_resource,
 		/// <summary>
-		/// Called before 'ID3D12GraphicsCommandList::CopyBufferRegion' or 'vkCmdCopyBuffer'.
+		/// Called before 'ID3D12GraphicsCommandList::CopyBufferRegion', 'glCopy(Named)BufferSubData' or 'vkCmdCopyBuffer'.
 		/// <para>Callback function signature: <c>bool (api::command_list *cmd_list, api::resource src, uint64_t src_offset, api::resource dst, uint64_t dst_offset, uint64_t size)</c></para>
 		/// </summary>
 		/// <remarks>
@@ -218,8 +202,8 @@ namespace reshade
 		/// </remarks>
 		copy_buffer_to_texture,
 		/// <summary>
-		/// Called before 'IDirect3DDevice9::UpdateSurface', 'ID3D10Device::CopySubresourceRegion', 'ID3D11DeviceContext::CopySubresourceRegion', 'ID3D12GraphicsCommandList::CopyTextureRegion' or 'vkCmdCopyImage'.
-		/// <para>Callback function signature: <c>bool (api::command_list *cmd_list, api::resource src, uint32_t src_subresource, const int32_t src_offset[3], api::resource dst, uint32_t dst_subresource, const int32_t dst_offset[3], const uint32_t size[3])</c></para>
+		/// Called before 'IDirect3DDevice9::UpdateSurface', 'IDirect3DDevice9::StretchRect', 'ID3D10Device::CopySubresourceRegion', 'ID3D11DeviceContext::CopySubresourceRegion', 'ID3D12GraphicsCommandList::CopyTextureRegion', 'glBlit(Named)Framebuffer', 'glCopyImageSubData', 'glCopyTex(ture)(Sub)Image(...)', 'vkCmdBlitImage' or 'vkCmdCopyImage'.
+		/// <para>Callback function signature: <c>bool (api::command_list *cmd_list, api::resource src, uint32_t src_subresource, const int32_t src_box[6], api::resource dst, uint32_t dst_subresource, const int32_t dst_box[6], api::texture_filter filter)</c></para>
 		/// </summary>
 		/// <remarks>
 		/// Source resource will be in the <see cref="resource_usage::copy_source"/> state. Destination resource will be in the <see cref="resource_usage::copy_dest"/> state.
@@ -233,6 +217,14 @@ namespace reshade
 		/// Source resource will be in the <see cref="resource_usage::copy_source"/> state. Destination resource will be in the <see cref="resource_usage::copy_dest"/> state.
 		/// </remarks>
 		copy_texture_to_buffer,
+		/// <summary>
+		/// Called before 'IDirect3DDevice9::StretchRect', 'ID3D10Device::ResolveSubresource', 'ID3D11DeviceContext::ResolveSubresource', 'ID3D12GraphicsCommandList::ResolveSubresource', 'ID3D12GraphicsCommandList1::ResolveSubresourceRegion', 'glBlit(Named)Framebuffer' or 'vkCmdResolveImage'.
+		/// <para>Callback function signature: <c>bool (api::command_list *cmd_list, api::resource src, uint32_t src_subresource, const int32_t src_box[6], api::resource dst, uint32_t dst_subresource, const int32_t dst_offset[3], api::format format)</c></para>
+		/// </summary>
+		/// <remarks>
+		/// Source resource will be in the <see cref="resource_usage::resolve_source"/> state. Destination resource will be in the <see cref="resource_usage::resolve_dest"/> state.
+		/// </remarks>
+		resolve_texture_region,
 
 		/// <summary>
 		/// Called before 'IDirect3DDevice9::Clear', 'ID3D10Device::ClearDepthStencilView', 'ID3D11DeviceContext::ClearDepthStencilView', 'ID3D12GraphicsCommandList::ClearDepthStencilView', 'glClear(...) ', 'vkCmdBeginRenderPass', 'vkCmdClearAttachments' or 'vkCmdClearDepthStencilImage'.
@@ -367,14 +359,14 @@ namespace reshade
 	DEFINE_ADDON_EVENT_TYPE_1(addon_event::init_effect_runtime, api::effect_runtime *runtime);
 	DEFINE_ADDON_EVENT_TYPE_1(addon_event::destroy_effect_runtime, api::effect_runtime *runtime);
 
+	DEFINE_ADDON_EVENT_TYPE_3(addon_event::create_sampler, api::device *device, const api::sampler_desc &desc);
 	DEFINE_ADDON_EVENT_TYPE_3(addon_event::create_resource, api::device *device, const api::resource_desc &desc, const api::subresource_data *initial_data, api::resource_usage initial_state);
 	DEFINE_ADDON_EVENT_TYPE_3(addon_event::create_resource_view, api::device *device, api::resource resource, api::resource_usage usage_type, const api::resource_view_desc &desc);
 
 	DEFINE_ADDON_EVENT_TYPE_3(addon_event::create_pipeline, api::device *device, const api::pipeline_desc &desc);
-	DEFINE_ADDON_EVENT_TYPE_3(addon_event::create_shader_module, api::device *device, api::shader_stage type, api::shader_format format, const char *entry_point, const void *code, size_t code_size);
 
 	DEFINE_ADDON_EVENT_TYPE_2(addon_event::upload_buffer_region, api::device *device, const void *data, api::resource dst, uint64_t dst_offset, uint64_t size);
-	DEFINE_ADDON_EVENT_TYPE_2(addon_event::upload_texture_region, api::device *device, const void *data, uint32_t row_pitch, uint32_t slice_pitch, api::resource dst, uint32_t dst_subresource, const int32_t dst_box[6]);
+	DEFINE_ADDON_EVENT_TYPE_2(addon_event::upload_texture_region, api::device *device, const api::subresource_data &data, api::resource dst, uint32_t dst_subresource, const int32_t dst_box[6]);
 
 	DEFINE_ADDON_EVENT_TYPE_1(addon_event::bind_pipeline, api::command_list *cmd_list, api::pipeline_type type, api::pipeline pipeline);
 	DEFINE_ADDON_EVENT_TYPE_1(addon_event::bind_pipeline_states, api::command_list *cmd_list, uint32_t count, const api::pipeline_state *states, const uint32_t *values);
@@ -392,15 +384,14 @@ namespace reshade
 	DEFINE_ADDON_EVENT_TYPE_2(addon_event::draw_or_dispatch_indirect, api::command_list *cmd_list, uint32_t type, api::resource buffer, uint64_t offset, uint32_t draw_count, uint32_t stride);
 
 	DEFINE_ADDON_EVENT_TYPE_1(addon_event::begin_render_pass, api::command_list *cmd_list, uint32_t count, const api::resource_view *rtvs, api::resource_view dsv);
-	DEFINE_ADDON_EVENT_TYPE_1(addon_event::end_render_pass, api::command_list *cmd_list);
+	DEFINE_ADDON_EVENT_TYPE_1(addon_event::finish_render_pass, api::command_list *cmd_list);
 
-	DEFINE_ADDON_EVENT_TYPE_2(addon_event::blit, api::command_list *cmd_list, api::resource src, uint32_t src_subresource, const int32_t src_box[6], api::resource dst, uint32_t dst_subresource, const int32_t dst_box[6], api::texture_filter filter);
-	DEFINE_ADDON_EVENT_TYPE_2(addon_event::resolve, api::command_list *cmd_list, api::resource src, uint32_t src_subresource, const int32_t src_offset[3], api::resource dst, uint32_t dst_subresource, const int32_t dst_offset[3], const uint32_t size[3], api::format format);
 	DEFINE_ADDON_EVENT_TYPE_2(addon_event::copy_resource, api::command_list *cmd_list, api::resource src, api::resource dst);
 	DEFINE_ADDON_EVENT_TYPE_2(addon_event::copy_buffer_region, api::command_list *cmd_list, api::resource src, uint64_t src_offset, api::resource dst, uint64_t dst_offset, uint64_t size);
 	DEFINE_ADDON_EVENT_TYPE_2(addon_event::copy_buffer_to_texture, api::command_list *cmd_list, api::resource src, uint64_t src_offset, uint32_t row_length, uint32_t slice_height, api::resource dst, uint32_t dst_subresource, const int32_t dst_box[6]);
-	DEFINE_ADDON_EVENT_TYPE_2(addon_event::copy_texture_region, api::command_list *cmd_list, api::resource src, uint32_t src_subresource, const int32_t src_offset[3], api::resource dst, uint32_t dst_subresource, const int32_t dst_offset[3], const uint32_t size[3]);
+	DEFINE_ADDON_EVENT_TYPE_2(addon_event::copy_texture_region, api::command_list *cmd_list, api::resource src, uint32_t src_subresource, const int32_t src_box[6], api::resource dst, uint32_t dst_subresource, const int32_t dst_box[6], api::texture_filter filter);
 	DEFINE_ADDON_EVENT_TYPE_2(addon_event::copy_texture_to_buffer, api::command_list *cmd_list, api::resource src, uint32_t src_subresource, const int32_t src_box[6], api::resource dst, uint64_t dst_offset, uint32_t row_length, uint32_t slice_height);
+	DEFINE_ADDON_EVENT_TYPE_2(addon_event::resolve_texture_region, api::command_list *cmd_list, api::resource src, uint32_t src_subresource, const int32_t src_box[6], api::resource dst, uint32_t dst_subresource, const int32_t dst_offset[3], api::format format);
 
 	DEFINE_ADDON_EVENT_TYPE_2(addon_event::clear_depth_stencil_view, api::command_list *cmd_list, api::resource_view dsv, uint32_t clear_flags, float depth, uint8_t stencil);
 	DEFINE_ADDON_EVENT_TYPE_2(addon_event::clear_render_target_views, api::command_list *cmd_list, uint32_t count, const api::resource_view *rtvs, const float color[4]);

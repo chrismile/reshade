@@ -35,10 +35,10 @@ static const char *addon_event_to_string(reshade::addon_event ev)
 		CASE(destroy_command_queue);
 		CASE(init_effect_runtime);
 		CASE(destroy_effect_runtime);
+		CASE(create_sampler);
 		CASE(create_resource);
 		CASE(create_resource_view);
 		CASE(create_pipeline);
-		CASE(create_shader_module);
 		CASE(upload_buffer_region);
 		CASE(upload_texture_region);
 		CASE(bind_pipeline);
@@ -55,14 +55,13 @@ static const char *addon_event_to_string(reshade::addon_event ev)
 		CASE(dispatch);
 		CASE(draw_or_dispatch_indirect);
 		CASE(begin_render_pass);
-		CASE(end_render_pass);
-		CASE(blit);
-		CASE(resolve);
+		CASE(finish_render_pass);
 		CASE(copy_resource);
 		CASE(copy_buffer_region);
 		CASE(copy_buffer_to_texture);
 		CASE(copy_texture_region);
 		CASE(copy_texture_to_buffer);
+		CASE(resolve_texture_region);
 		CASE(clear_depth_stencil_view);
 		CASE(clear_render_target_views);
 		CASE(clear_unordered_access_view_uint);

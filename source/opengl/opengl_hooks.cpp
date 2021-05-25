@@ -6,7 +6,6 @@
 #include "dll_log.hpp"
 #include "hook_manager.hpp"
 #include "runtime_gl.hpp"
-#include "render_gl_utils.hpp"
 #include "opengl_hooks.hpp" // Fix name clashes with gl3w
 
 struct DrawArraysIndirectCommand
@@ -186,7 +185,7 @@ HOOK_EXPORT void WINAPI glBegin(GLenum mode)
 	if (g_current_runtime && (target == GL_FRAMEBUFFER || target == GL_DRAW_FRAMEBUFFER) &&
 		glCheckFramebufferStatus(target) == GL_FRAMEBUFFER_COMPLETE) // Skip incomplete frame buffer bindings (e.g. during set up)
 	{
-		reshade::invoke_addon_event<reshade::addon_event::end_render_pass>(g_current_runtime);
+		reshade::invoke_addon_event<reshade::addon_event::finish_render_pass>(g_current_runtime);
 
 		GLuint count = 0;
 		reshade::api::resource_view rtvs[8];
@@ -395,15 +394,14 @@ HOOK_EXPORT void WINAPI glBlendFunc(GLenum sfactor, GLenum dfactor)
 
 		if (g_current_runtime->get_resource_desc(src).texture.samples <= 1)
 		{
-			if (reshade::invoke_addon_event<reshade::addon_event::blit>(g_current_runtime, src, 0, src_box, dst, 0, dst_box,
+			if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(g_current_runtime, src, 0, src_box, dst, 0, dst_box,
 				filter == GL_NONE || filter == GL_NEAREST ? reshade::api::texture_filter::min_mag_mip_point : reshade::api::texture_filter::min_mag_mip_linear))
 				return;
 		}
 		else
 		{
 			// TODO: Ensure same extent
-			const uint32_t extent[3] = { static_cast<uint32_t>(srcX1 - srcX0), static_cast<uint32_t>(srcY1 - srcY0), 1 };
-			if (reshade::invoke_addon_event<reshade::addon_event::resolve>(g_current_runtime, src, 0, src_box, dst, 0, dst_box, extent, reshade::api::format::unknown))
+			if (reshade::invoke_addon_event<reshade::addon_event::resolve_texture_region>(g_current_runtime, src, 0, src_box, dst, 0, dst_box, reshade::api::format::unknown))
 				return;
 		}
 	}
@@ -429,15 +427,14 @@ HOOK_EXPORT void WINAPI glBlendFunc(GLenum sfactor, GLenum dfactor)
 
 		if (g_current_runtime->get_resource_desc(src).texture.samples <= 1)
 		{
-			if (reshade::invoke_addon_event<reshade::addon_event::blit>(g_current_runtime, src, 0, src_box, dst, 0, dst_box,
+			if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(g_current_runtime, src, 0, src_box, dst, 0, dst_box,
 				filter == GL_NONE || filter == GL_NEAREST ? reshade::api::texture_filter::min_mag_mip_point : reshade::api::texture_filter::min_mag_mip_linear))
 				return;
 		}
 		else
 		{
 			// TODO: Ensure same extent
-			const uint32_t extent[3] = { static_cast<uint32_t>(srcX1 - srcX0), static_cast<uint32_t>(srcY1 - srcY0), 1 };
-			if (reshade::invoke_addon_event<reshade::addon_event::resolve>(g_current_runtime, src, 0, src_box, dst, 0, dst_box, extent, reshade::api::format::unknown))
+			if (reshade::invoke_addon_event<reshade::addon_event::resolve_texture_region>(g_current_runtime, src, 0, src_box, dst, 0, dst_box, reshade::api::format::unknown))
 				return;
 		}
 	}
@@ -841,6 +838,63 @@ HOOK_EXPORT void WINAPI glColorPointer(GLint size, GLenum type, GLsizei stride, 
 	trampoline(size, type, stride, pointer);
 }
 
+			void WINAPI glCopyBufferSubData(GLenum readTarget, GLenum writeTarget, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size)
+{
+#if RESHADE_ADDON
+	if (g_current_runtime && !reshade::addon::event_list[static_cast<size_t>(reshade::addon_event::copy_buffer_region)].empty())
+	{
+		GLint src_object = 0;
+		glGetIntegerv(reshade::opengl::get_binding_for_target(readTarget), &src_object);
+		GLint dst_object = 0;
+		glGetIntegerv(reshade::opengl::get_binding_for_target(writeTarget), &dst_object);
+
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_buffer_region>(g_current_runtime,
+			reshade::opengl::make_resource_handle(readTarget, src_object), readOffset,
+			reshade::opengl::make_resource_handle(writeTarget, dst_object), writeOffset, size))
+			return;
+	}
+#endif
+
+	static const auto trampoline = reshade::hooks::call(glCopyBufferSubData);
+	trampoline(readTarget, writeTarget, readOffset, writeOffset, size);
+}
+
+			void WINAPI glCopyImageSubData(GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth)
+{
+#if RESHADE_ADDON
+	if (g_current_runtime && !reshade::addon::event_list[static_cast<size_t>(reshade::addon_event::copy_texture_region)].empty())
+	{
+		const int32_t src_box[6] = { srcX, srcY, srcZ, srcX + srcWidth, srcY + srcHeight, srcZ + srcDepth };
+		const int32_t dst_box[6] = { dstX, dstY, dstZ, dstX + srcWidth, dstY + srcHeight, dstZ + srcDepth };
+
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(g_current_runtime,
+			reshade::opengl::make_resource_handle(srcTarget, srcName), srcLevel, src_box,
+			reshade::opengl::make_resource_handle(dstTarget, dstName), dstLevel, dst_box,
+			reshade::api::texture_filter::min_mag_mip_point))
+			return;
+	}
+#endif
+
+	static const auto trampoline = reshade::hooks::call(glCopyImageSubData);
+	trampoline(srcName, srcTarget, srcLevel, srcX, srcY, srcZ, dstName, dstTarget, dstLevel, dstX, dstY, dstZ, srcWidth, srcHeight, srcDepth);
+}
+
+			void WINAPI glCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size)
+{
+#if RESHADE_ADDON
+	if (g_current_runtime && !reshade::addon::event_list[static_cast<size_t>(reshade::addon_event::copy_buffer_region)].empty())
+	{
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_buffer_region>(g_current_runtime,
+			reshade::opengl::make_resource_handle(GL_COPY_READ_BUFFER, readBuffer), readOffset,
+			reshade::opengl::make_resource_handle(GL_COPY_WRITE_BUFFER, writeBuffer), writeOffset, size))
+			return;
+	}
+#endif
+
+	static const auto trampoline = reshade::hooks::call(glCopyNamedBufferSubData);
+	trampoline(readBuffer, writeBuffer, readOffset, writeOffset, size);
+}
+
 HOOK_EXPORT void WINAPI glCopyPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum type)
 {
 	static const auto trampoline = reshade::hooks::call(glCopyPixels);
@@ -849,23 +903,180 @@ HOOK_EXPORT void WINAPI glCopyPixels(GLint x, GLint y, GLsizei width, GLsizei he
 
 HOOK_EXPORT void WINAPI glCopyTexImage1D(GLenum target, GLint level, GLenum internalFormat, GLint x, GLint y, GLsizei width, GLint border)
 {
+#if RESHADE_ADDON
+	if (g_current_runtime && !reshade::addon::event_list[static_cast<size_t>(reshade::addon_event::copy_texture_region)].empty())
+	{
+		// TODO: Get actual source object from current FBO and "GL_READ_BUFFER"
+		// TODO: Call "create_resource" event here too
+		GLint dst_object = 0;
+		glGetIntegerv(reshade::opengl::get_binding_for_target(target), &dst_object);
+
+		const int32_t src_box[6] = { x, y, 0, x + width, y + 1, 1 };
+		const int32_t dst_box[6] = { 0, 0, 0, width, 1, 1 };
+
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(g_current_runtime,
+			reshade::opengl::make_resource_handle(GL_FRAMEBUFFER_DEFAULT, GL_COLOR_ATTACHMENT0), 0, src_box,
+			reshade::opengl::make_resource_handle(target, dst_object), level, dst_box,
+			reshade::api::texture_filter::min_mag_mip_point))
+			return;
+	}
+#endif
+
 	static const auto trampoline = reshade::hooks::call(glCopyTexImage1D);
 	trampoline(target, level, internalFormat, x, y, width, border);
 }
 HOOK_EXPORT void WINAPI glCopyTexImage2D(GLenum target, GLint level, GLenum internalFormat, GLint x, GLint y, GLsizei width, GLsizei height, GLint border)
 {
+#if RESHADE_ADDON
+	if (g_current_runtime && !reshade::addon::event_list[static_cast<size_t>(reshade::addon_event::copy_texture_region)].empty())
+	{
+		// TODO: Get actual source object from current FBO and "GL_READ_BUFFER"
+		// TODO: Call "create_resource" event here too
+		GLint dst_object = 0;
+		glGetIntegerv(reshade::opengl::get_binding_for_target(target), &dst_object);
+
+		const int32_t src_box[6] = { x, y, 0, x + width, y + height, 1 };
+		const int32_t dst_box[6] = { 0, 0, 0, width, height, 1 };
+
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(g_current_runtime,
+			reshade::opengl::make_resource_handle(GL_FRAMEBUFFER_DEFAULT, GL_COLOR_ATTACHMENT0), 0, src_box,
+			reshade::opengl::make_resource_handle(target, dst_object), level, dst_box,
+			reshade::api::texture_filter::min_mag_mip_point))
+			return;
+	}
+#endif
+
 	static const auto trampoline = reshade::hooks::call(glCopyTexImage2D);
 	trampoline(target, level, internalFormat, x, y, width, height, border);
 }
 HOOK_EXPORT void WINAPI glCopyTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLint x, GLint y, GLsizei width)
 {
+#if RESHADE_ADDON
+	if (g_current_runtime && !reshade::addon::event_list[static_cast<size_t>(reshade::addon_event::copy_texture_region)].empty())
+	{
+		// TODO: Get actual source object from current FBO and "GL_READ_BUFFER"
+		GLint dst_object = 0;
+		glGetIntegerv(reshade::opengl::get_binding_for_target(target), &dst_object);
+
+		const int32_t src_box[6] = { x, y, 0, x + width, y + 1, 1 };
+		const int32_t dst_box[6] = { xoffset, 0, 0, xoffset + width, 1, 1 };
+
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(g_current_runtime,
+			reshade::opengl::make_resource_handle(GL_FRAMEBUFFER_DEFAULT, GL_COLOR_ATTACHMENT0), 0, src_box,
+			reshade::opengl::make_resource_handle(target, dst_object), level, dst_box,
+			reshade::api::texture_filter::min_mag_mip_point))
+			return;
+	}
+#endif
+
 	static const auto trampoline = reshade::hooks::call(glCopyTexSubImage1D);
 	trampoline(target, level, xoffset, x, y, width);
 }
 HOOK_EXPORT void WINAPI glCopyTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height)
 {
+#if RESHADE_ADDON
+	if (g_current_runtime && !reshade::addon::event_list[static_cast<size_t>(reshade::addon_event::copy_texture_region)].empty())
+	{
+		// TODO: Get actual source object from current FBO and "GL_READ_BUFFER"
+		GLint dst_object = 0;
+		glGetIntegerv(reshade::opengl::get_binding_for_target(target), &dst_object);
+
+		const int32_t src_box[6] = { x, y, 0, x + width, y + height, 1 };
+		const int32_t dst_box[6] = { xoffset, yoffset, 0, xoffset + width, yoffset + height, 1 };
+
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(g_current_runtime,
+			reshade::opengl::make_resource_handle(GL_FRAMEBUFFER_DEFAULT, GL_COLOR_ATTACHMENT0), 0, src_box,
+			reshade::opengl::make_resource_handle(target, dst_object), level, dst_box,
+			reshade::api::texture_filter::min_mag_mip_point))
+			return;
+	}
+#endif
+
 	static const auto trampoline = reshade::hooks::call(glCopyTexSubImage2D);
 	trampoline(target, level, xoffset, yoffset, x, y, width, height);
+}
+			void WINAPI glCopyTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height)
+{
+#if RESHADE_ADDON
+	if (g_current_runtime && !reshade::addon::event_list[static_cast<size_t>(reshade::addon_event::copy_texture_region)].empty())
+	{
+		// TODO: Get actual source object from current FBO and "GL_READ_BUFFER"
+		GLint dst_object = 0;
+		glGetIntegerv(reshade::opengl::get_binding_for_target(target), &dst_object);
+
+		const int32_t src_box[6] = { x, y, 0, x + width, y + height, 1 };
+		const int32_t dst_box[6] = { xoffset, yoffset, zoffset, xoffset + width, yoffset + height, zoffset + 1 };
+
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(g_current_runtime,
+			reshade::opengl::make_resource_handle(GL_FRAMEBUFFER_DEFAULT, GL_COLOR_ATTACHMENT0), 0, src_box,
+			reshade::opengl::make_resource_handle(target, dst_object), level, dst_box,
+			reshade::api::texture_filter::min_mag_mip_point))
+			return;
+	}
+#endif
+
+	static const auto trampoline = reshade::hooks::call(glCopyTexSubImage3D);
+	trampoline(target, level, xoffset, yoffset, zoffset, x, y, width, height);
+}
+			void WINAPI glCopyTextureSubImage1D(GLuint texture, GLint level, GLint xoffset, GLint x, GLint y, GLsizei width)
+{
+#if RESHADE_ADDON
+	if (g_current_runtime && !reshade::addon::event_list[static_cast<size_t>(reshade::addon_event::copy_texture_region)].empty())
+	{
+		// TODO: Get actual source object from current FBO and "GL_READ_BUFFER"
+		const int32_t src_box[6] = { x, y, 0, x + width, y + 1, 1 };
+		const int32_t dst_box[6] = { xoffset, 0, 0, xoffset + width, 1, 1 };
+
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(g_current_runtime,
+			reshade::opengl::make_resource_handle(GL_FRAMEBUFFER_DEFAULT, GL_COLOR_ATTACHMENT0), 0, src_box,
+			reshade::opengl::make_resource_handle(GL_TEXTURE, texture), level, dst_box,
+			reshade::api::texture_filter::min_mag_mip_point))
+			return;
+	}
+#endif
+
+	static const auto trampoline = reshade::hooks::call(glCopyTextureSubImage1D);
+	trampoline(texture, level, xoffset, x, y, width);
+}
+			void WINAPI glCopyTextureSubImage2D(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height)
+{
+#if RESHADE_ADDON
+	if (g_current_runtime && !reshade::addon::event_list[static_cast<size_t>(reshade::addon_event::copy_texture_region)].empty())
+	{
+		// TODO: Get actual source object from current FBO and "GL_READ_BUFFER"
+		const int32_t src_box[6] = { x, y, 0, x + width, y + height, 1 };
+		const int32_t dst_box[6] = { xoffset, yoffset, 0, xoffset + width, yoffset + height, 1 };
+
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(g_current_runtime,
+			reshade::opengl::make_resource_handle(GL_FRAMEBUFFER_DEFAULT, GL_COLOR_ATTACHMENT0), 0, src_box,
+			reshade::opengl::make_resource_handle(GL_TEXTURE, texture), level, dst_box,
+			reshade::api::texture_filter::min_mag_mip_point))
+			return;
+	}
+#endif
+
+	static const auto trampoline = reshade::hooks::call(glCopyTextureSubImage2D);
+	trampoline(texture, level, xoffset, yoffset, x, y, width, height);
+}
+			void WINAPI glCopyTextureSubImage3D(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height)
+{
+#if RESHADE_ADDON
+	if (g_current_runtime && !reshade::addon::event_list[static_cast<size_t>(reshade::addon_event::copy_texture_region)].empty())
+	{
+		// TODO: Get actual source object from current FBO and "GL_READ_BUFFER"
+		const int32_t src_box[6] = { x, y, 0, x + width, y + height, 1 };
+		const int32_t dst_box[6] = { xoffset, yoffset, zoffset, xoffset + width, yoffset + height, zoffset + 1 };
+
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(g_current_runtime,
+			reshade::opengl::make_resource_handle(GL_FRAMEBUFFER_DEFAULT, GL_COLOR_ATTACHMENT0), 0, src_box,
+			reshade::opengl::make_resource_handle(GL_TEXTURE, texture), level, dst_box,
+			reshade::api::texture_filter::min_mag_mip_point))
+			return;
+	}
+#endif
+
+	static const auto trampoline = reshade::hooks::call(glCopyTextureSubImage3D);
+	trampoline(texture, level, xoffset, yoffset, zoffset, x, y, width, height);
 }
 
 HOOK_EXPORT void WINAPI glCullFace(GLenum mode)
@@ -1415,7 +1626,9 @@ HOOK_EXPORT void WINAPI glEnd()
 
 	if (g_current_runtime)
 	{
+#if RESHADE_ADDON
 		reshade::invoke_addon_event<reshade::addon_event::draw>(g_current_runtime, g_current_runtime->_current_vertex_count, 1, 0, 0); // Cannot be skipped
+#endif
 
 		g_current_runtime->_current_vertex_count = 0;
 	}
@@ -2714,32 +2927,6 @@ HOOK_EXPORT void WINAPI glShadeModel(GLenum mode)
 #if RESHADE_ADDON
 	if (g_current_runtime)
 	{
-		GLint type = GL_NONE;
-		glGetShaderiv(shader, GL_SHADER_TYPE, &type);
-
-		reshade::api::shader_stage shader_stage = reshade::api::shader_stage::all;
-		switch (type)
-		{
-		case GL_VERTEX_SHADER:
-			shader_stage = reshade::api::shader_stage::vertex;
-			break;
-		case GL_TESS_CONTROL_SHADER:
-			shader_stage = reshade::api::shader_stage::hull;
-			break;
-		case GL_TESS_EVALUATION_SHADER:
-			shader_stage = reshade::api::shader_stage::domain;
-			break;
-		case GL_GEOMETRY_SHADER:
-			shader_stage = reshade::api::shader_stage::geometry;
-			break;
-		case GL_FRAGMENT_SHADER:
-			shader_stage = reshade::api::shader_stage::pixel;
-			break;
-		case GL_COMPUTE_SHADER:
-			shader_stage = reshade::api::shader_stage::compute;
-			break;
-		}
-
 		std::string combined_source;
 		if (length != nullptr)
 		{
@@ -2753,11 +2940,74 @@ HOOK_EXPORT void WINAPI glShadeModel(GLenum mode)
 				combined_source.append(string[i]);
 		}
 
-		reshade::invoke_addon_event<reshade::addon_event::create_shader_module>(
-			[shader, count, string, length, shader_stage, &combined_source](reshade::api::device *, reshade::api::shader_stage type, reshade::api::shader_format format, const char *, const void *code, size_t code_size) {
-				if (type != shader_stage || format != reshade::api::shader_format::glsl)
-					return false;
-				if (code == combined_source.c_str() && code_size == combined_source.size())
+		GLint type = GL_NONE;
+		glGetShaderiv(shader, GL_SHADER_TYPE, &type);
+
+		reshade::api::shader_desc *shader_desc = nullptr;
+		reshade::api::pipeline_desc desc = {};
+		switch (type)
+		{
+		case GL_VERTEX_SHADER:
+			desc.type = reshade::api::pipeline_type::graphics_vertex_shader;
+			shader_desc = &desc.graphics.vertex_shader;
+			break;
+		case GL_TESS_CONTROL_SHADER:
+			desc.type = reshade::api::pipeline_type::graphics_hull_shader;
+			shader_desc = &desc.graphics.hull_shader;
+			break;
+		case GL_TESS_EVALUATION_SHADER:
+			desc.type = reshade::api::pipeline_type::graphics_domain_shader;
+			shader_desc = &desc.graphics.domain_shader;
+			break;
+		case GL_GEOMETRY_SHADER:
+			desc.type = reshade::api::pipeline_type::graphics_geometry_shader;
+			shader_desc = &desc.graphics.geometry_shader;
+			break;
+		case GL_FRAGMENT_SHADER:
+			desc.type = reshade::api::pipeline_type::graphics_pixel_shader;
+			shader_desc = &desc.graphics.pixel_shader;
+			break;
+		case GL_COMPUTE_SHADER:
+			desc.type = reshade::api::pipeline_type::compute;
+			shader_desc = &desc.compute.shader;
+			break;
+		default:
+			assert(false);
+			break;
+		}
+
+		shader_desc->code = combined_source.data();
+		shader_desc->code_size = combined_source.size();
+		shader_desc->format = reshade::api::shader_format::glsl;
+		shader_desc->entry_point = "main";
+
+		reshade::invoke_addon_event<reshade::addon_event::create_pipeline>(
+			[shader, count, string, length, &combined_source, type](reshade::api::device *, const reshade::api::pipeline_desc &desc) {
+				const reshade::api::shader_desc *shader_desc = nullptr;
+				switch (type)
+				{
+				case GL_VERTEX_SHADER:
+					shader_desc = &desc.graphics.vertex_shader;
+					break;
+				case GL_TESS_CONTROL_SHADER:
+					shader_desc = &desc.graphics.hull_shader;
+					break;
+				case GL_TESS_EVALUATION_SHADER:
+					shader_desc = &desc.graphics.domain_shader;
+					break;
+				case GL_GEOMETRY_SHADER:
+					shader_desc = &desc.graphics.geometry_shader;
+					break;
+				case GL_FRAGMENT_SHADER:
+					shader_desc = &desc.graphics.pixel_shader;
+					break;
+				case GL_COMPUTE_SHADER:
+					shader_desc = &desc.compute.shader;
+					break;
+				}
+
+				if (shader_desc->code == combined_source.c_str() &&
+					shader_desc->code_size == combined_source.size())
 				{
 					const auto combined_source_p = combined_source.c_str();
 					const auto combined_source_length = static_cast<GLint>(combined_source.size());
@@ -2768,7 +3018,7 @@ HOOK_EXPORT void WINAPI glShadeModel(GLenum mode)
 					trampoline(shader, count, string, length);
 				}
 				return true;
-			}, g_current_runtime, shader_stage, reshade::api::shader_format::glsl, "main", combined_source.data(), combined_source.size());
+			}, g_current_runtime, desc);
 		return;
 	}
 #endif

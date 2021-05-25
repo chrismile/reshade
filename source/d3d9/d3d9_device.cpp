@@ -7,7 +7,6 @@
 #include "d3d9_device.hpp"
 #include "d3d9_swapchain.hpp"
 #include "runtime_d3d9.hpp"
-#include "render_d3d9_utils.hpp"
 
 extern void dump_and_modify_present_parameters(D3DPRESENT_PARAMETERS &pp, IDirect3D9 *d3d, UINT adapter_index);
 extern void dump_and_modify_present_parameters(D3DPRESENT_PARAMETERS &pp, D3DDISPLAYMODEEX &fullscreen_desc, IDirect3D9 *d3d, UINT adapter_index);
@@ -228,7 +227,9 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::Reset(D3DPRESENT_PARAMETERS *pPresent
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::Present(const RECT *pSourceRect, const RECT *pDestRect, HWND hDestWindowOverride, const RGNDATA *pDirtyRegion)
 {
+#if RESHADE_ADDON
 	reshade::invoke_addon_event<reshade::addon_event::present>(this, _implicit_swapchain);
+#endif
 
 	// Only call into runtime if the entire surface is presented, to avoid partial updates messing up effects and the GUI
 	if (Direct3DSwapChain9::is_presenting_entire_surface(pSourceRect, hDestWindowOverride))
@@ -282,6 +283,7 @@ void    STDMETHODCALLTYPE Direct3DDevice9::GetGammaRamp(UINT iSwapChain, D3DGAMM
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateTexture(UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DTexture9 **ppTexture, HANDLE *pSharedHandle)
 {
+#if RESHADE_ADDON
 	D3DSURFACE_DESC new_desc = { Format, D3DRTYPE_TEXTURE, Usage, Pool, D3DMULTISAMPLE_NONE, 0, Width, Height };
 
 	HRESULT hr = E_FAIL;
@@ -330,9 +332,13 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateTexture(UINT Width, UINT Height
 			}
 		}, this, reshade::d3d9::convert_resource_desc(new_desc, Levels, _caps), nullptr, reshade::api::resource_usage::undefined);
 	return hr;
+#else
+	return _orig->CreateTexture(Width, Height, Levels, Usage, Format, Pool, ppTexture, pSharedHandle);
+#endif
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateVolumeTexture(UINT Width, UINT Height, UINT Depth, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DVolumeTexture9 **ppVolumeTexture, HANDLE *pSharedHandle)
 {
+#if RESHADE_ADDON
 	D3DVOLUME_DESC new_desc = { Format, D3DRTYPE_VOLUMETEXTURE, Usage, Pool, Width, Height, Depth };
 
 	HRESULT hr = E_FAIL;
@@ -369,9 +375,13 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateVolumeTexture(UINT Width, UINT 
 			}
 		}, this, reshade::d3d9::convert_resource_desc(new_desc, Levels), nullptr, reshade::api::resource_usage::undefined);
 	return hr;
+#else
+	return _orig->CreateVolumeTexture(Width, Height, Depth, Levels, Usage, Format, Pool, ppVolumeTexture, pSharedHandle);
+#endif
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateCubeTexture(UINT EdgeLength, UINT Levels, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DCubeTexture9 **ppCubeTexture, HANDLE *pSharedHandle)
 {
+#if RESHADE_ADDON
 	D3DSURFACE_DESC new_desc = { Format, D3DRTYPE_CUBETEXTURE, Usage, Pool, D3DMULTISAMPLE_NONE, 0, EdgeLength, EdgeLength };
 
 	HRESULT hr = E_FAIL;
@@ -422,6 +432,9 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateCubeTexture(UINT EdgeLength, UI
 			}
 		}, this, reshade::d3d9::convert_resource_desc(new_desc, Levels, _caps), nullptr, reshade::api::resource_usage::undefined);
 	return hr;
+#else
+	return _orig->CreateCubeTexture(EdgeLength, Levels, Usage, Format, Pool, ppCubeTexture, pSharedHandle);
+#endif
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateVertexBuffer(UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool, IDirect3DVertexBuffer9 **ppVertexBuffer, HANDLE *pSharedHandle)
 {
@@ -429,6 +442,7 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateVertexBuffer(UINT Length, DWORD
 	if (_use_software_rendering)
 		Usage |= D3DUSAGE_SOFTWAREPROCESSING;
 
+#if RESHADE_ADDON
 	D3DVERTEXBUFFER_DESC new_desc = { D3DFMT_UNKNOWN, D3DRTYPE_VERTEXBUFFER, Usage, Pool, Length, FVF };
 
 	HRESULT hr = E_FAIL;
@@ -460,12 +474,16 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateVertexBuffer(UINT Length, DWORD
 			}
 		}, this, reshade::d3d9::convert_resource_desc(new_desc), nullptr, reshade::api::resource_usage::vertex_buffer);
 	return hr;
+#else
+	return _orig->CreateVertexBuffer(Length, Usage, FVF, Pool, ppVertexBuffer, pSharedHandle);
+#endif
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateIndexBuffer(UINT Length, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool, IDirect3DIndexBuffer9 **ppIndexBuffer, HANDLE *pSharedHandle)
 {
 	if (_use_software_rendering)
 		Usage |= D3DUSAGE_SOFTWAREPROCESSING;
 
+#if RESHADE_ADDON
 	D3DINDEXBUFFER_DESC new_desc = { Format, D3DRTYPE_INDEXBUFFER, Usage, Pool, Length };
 
 	HRESULT hr = E_FAIL;
@@ -498,9 +516,13 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateIndexBuffer(UINT Length, DWORD 
 			}
 		}, this, reshade::d3d9::convert_resource_desc(new_desc), nullptr, reshade::api::resource_usage::index_buffer);
 	return hr;
+#else
+	return _orig->CreateIndexBuffer(Length, Usage, Format, Pool, ppIndexBuffer, pSharedHandle);
+#endif
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateRenderTarget(UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle)
 {
+#if RESHADE_ADDON
 	D3DSURFACE_DESC new_desc = { Format, D3DRTYPE_SURFACE, D3DUSAGE_RENDERTARGET, D3DPOOL_DEFAULT, MultiSample, MultisampleQuality, Width, Height };
 
 	HRESULT hr = E_FAIL;
@@ -541,9 +563,13 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateRenderTarget(UINT Width, UINT H
 			}
 		}, this, reshade::d3d9::convert_resource_desc(new_desc, 1, _caps), nullptr, reshade::api::resource_usage::render_target);
 	return hr;
+#else
+	return _orig->CreateRenderTarget(Width, Height, Format, MultiSample, MultisampleQuality, Lockable, ppSurface, pSharedHandle);
+#endif
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateDepthStencilSurface(UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Discard, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle)
 {
+#if RESHADE_ADDON
 	D3DSURFACE_DESC new_desc = { Format, D3DRTYPE_SURFACE, D3DUSAGE_DEPTHSTENCIL, D3DPOOL_DEFAULT, MultiSample, MultisampleQuality, Width, Height };
 
 	HRESULT hr = E_FAIL;
@@ -553,12 +579,10 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateDepthStencilSurface(UINT Width,
 				return false;
 			reshade::d3d9::convert_resource_desc(desc, new_desc);
 
-#if RESHADE_ADDON
 			// Need to replace surface with a texture if an add-on requested shader access
 			if ((desc.usage & reshade::api::resource_usage::shader_resource) != reshade::api::resource_usage::undefined)
 				hr = create_surface_replacement(new_desc, ppSurface, pSharedHandle) ? D3D_OK : D3DERR_INVALIDCALL;
 			else
-#endif
 				hr = _orig->CreateDepthStencilSurface(new_desc.Width, new_desc.Height, new_desc.Format, new_desc.MultiSampleType, new_desc.MultiSampleQuality, Discard, ppSurface, pSharedHandle);
 
 			if (SUCCEEDED(hr))
@@ -584,40 +608,39 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateDepthStencilSurface(UINT Width,
 			}
 		}, this, reshade::d3d9::convert_resource_desc(new_desc, 1, _caps), nullptr, reshade::api::resource_usage::depth_stencil);
 	return hr;
+#else
+	return _orig->CreateDepthStencilSurface(Width, Height, Format, MultiSample, MultisampleQuality, Discard, ppSurface, pSharedHandle);
+#endif
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::UpdateSurface(IDirect3DSurface9 *pSourceSurface, const RECT *pSourceRect, IDirect3DSurface9 *pDestinationSurface, const POINT *pDestPoint)
 {
 #if RESHADE_ADDON
-	int32_t src_offset[3];
-	uint32_t extent[3];
+	int32_t src_box[6];
+	int32_t dst_box[6];
 	if (pSourceRect != nullptr)
 	{
-		src_offset[0] = pSourceRect->left;
-		src_offset[1] = pSourceRect->top;
-		src_offset[2] = 0;
-		extent[0] = pSourceRect->right - pSourceRect->left;
-		extent[1] = pSourceRect->bottom - pSourceRect->top;
-		extent[2] = 1;
-	}
-	else
-	{
-		D3DSURFACE_DESC desc;
-		pDestinationSurface->GetDesc(&desc);
-		extent[0] = desc.Width;
-		extent[1] = desc.Height;
-		extent[2] = 1;
-	}
-	int32_t dst_offset[3];
-	if (pDestPoint != nullptr)
-	{
-		dst_offset[0] = pDestPoint->x;
-		dst_offset[1] = pDestPoint->y;
-		dst_offset[2] = 0;
+		src_box[0] = pSourceRect->left;
+		src_box[1] = pSourceRect->top;
+		src_box[2] = 0;
+		src_box[3] = pSourceRect->right;
+		src_box[4] = pSourceRect->bottom;
+		src_box[5] = 1;
+
+		if (pDestPoint != nullptr)
+		{
+			dst_box[0] = pDestPoint->x;
+			dst_box[1] = pDestPoint->y;
+			dst_box[2] = 0;
+			dst_box[3] = pDestPoint->x + pSourceRect->right - pSourceRect->left;
+			dst_box[4] = pDestPoint->y + pSourceRect->bottom - pSourceRect->top;
+			dst_box[5] = 1;
+		}
 	}
 
 	if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(this,
-		reshade::api::resource { reinterpret_cast<uintptr_t>(pSourceSurface) }, 0, (pSourceRect != nullptr) ? src_offset : nullptr,
-		reshade::api::resource { reinterpret_cast<uintptr_t>(pDestinationSurface) }, 0, (pDestPoint != nullptr) ? dst_offset : nullptr, extent))
+		reshade::api::resource { reinterpret_cast<uintptr_t>(pSourceSurface) }, 0, (pSourceRect != nullptr) ? src_box : nullptr,
+		reshade::api::resource { reinterpret_cast<uintptr_t>(pDestinationSurface) }, 0, (pSourceRect != nullptr && pDestPoint != nullptr) ? dst_box : nullptr,
+		reshade::api::texture_filter::min_mag_mip_point))
 		return D3D_OK;
 #endif
 	return _orig->UpdateSurface(pSourceSurface, pSourceRect, pDestinationSurface, pDestPoint);
@@ -648,6 +671,7 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::StretchRect(IDirect3DSurface9 *pSourc
 {
 #if RESHADE_ADDON
 	int32_t src_box[6];
+	int32_t dst_box[6];
 	if (pSourceRect != nullptr)
 	{
 		src_box[0] = pSourceRect->left;
@@ -657,7 +681,6 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::StretchRect(IDirect3DSurface9 *pSourc
 		src_box[4] = pSourceRect->bottom;
 		src_box[5] = 1;
 	}
-	int32_t dst_box[6];
 	if (pDestRect != nullptr)
 	{
 		dst_box[0] = pDestRect->left;
@@ -673,7 +696,7 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::StretchRect(IDirect3DSurface9 *pSourc
 
 	if (desc.MultiSampleType == D3DMULTISAMPLE_NONE)
 	{
-		if (reshade::invoke_addon_event<reshade::addon_event::blit>(this,
+		if (reshade::invoke_addon_event<reshade::addon_event::copy_texture_region>(this,
 			reshade::api::resource { reinterpret_cast<uintptr_t>(pSourceSurface) }, 0, (pSourceRect != nullptr) ? src_box : nullptr,
 			reshade::api::resource { reinterpret_cast<uintptr_t>(pDestSurface) }, 0, (pDestRect != nullptr) ? dst_box : nullptr,
 			Filter == D3DTEXF_NONE || Filter == D3DTEXF_POINT ? reshade::api::texture_filter::min_mag_mip_point : reshade::api::texture_filter::min_mag_mip_linear))
@@ -681,12 +704,9 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::StretchRect(IDirect3DSurface9 *pSourc
 	}
 	else
 	{
-		const uint32_t extent[3] = { desc.Width, desc.Height, 1 };
-
-		if (reshade::invoke_addon_event<reshade::addon_event::resolve>(this,
+		if (reshade::invoke_addon_event<reshade::addon_event::resolve_texture_region>(this,
 			reshade::api::resource { reinterpret_cast<uintptr_t>(pSourceSurface) }, 0, (pSourceRect != nullptr) ? src_box : nullptr,
 			reshade::api::resource { reinterpret_cast<uintptr_t>(pDestSurface) }, 0, (pDestRect != nullptr) ? dst_box : nullptr,
-			extent,
 			reshade::d3d9::convert_format(desc.Format)))
 			return D3D_OK;
 	}
@@ -713,7 +733,7 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::SetRenderTarget(DWORD RenderTargetInd
 {
 #if RESHADE_ADDON
 	if (RenderTargetIndex == 0)
-		reshade::invoke_addon_event<reshade::addon_event::end_render_pass>(this);
+		reshade::invoke_addon_event<reshade::addon_event::finish_render_pass>(this);
 #endif
 
 	const HRESULT hr = _orig->SetRenderTarget(RenderTargetIndex, pRenderTarget);
@@ -770,7 +790,7 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::GetRenderTarget(DWORD RenderTargetInd
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::SetDepthStencilSurface(IDirect3DSurface9 *pNewZStencil)
 {
 #if RESHADE_ADDON
-	reshade::invoke_addon_event<reshade::addon_event::end_render_pass>(this);
+	reshade::invoke_addon_event<reshade::addon_event::finish_render_pass>(this);
 #endif
 
 	const HRESULT hr = _orig->SetDepthStencilSurface(pNewZStencil);
@@ -1196,18 +1216,22 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::GetFVF(DWORD *pFVF)
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateVertexShader(const DWORD *pFunction, IDirect3DVertexShader9 **ppShader)
 {
+#if RESHADE_ADDON
 	if (pFunction == nullptr)
 		return D3DERR_INVALIDCALL;
 
+	reshade::api::pipeline_desc desc = { reshade::api::pipeline_type::graphics_vertex_shader };
+	desc.graphics.vertex_shader.code = pFunction;
 	// Total size is at byte offset 24 (see http://timjones.io/blog/archive/2015/09/02/parsing-direct3d-shader-bytecode)
-	const DWORD total_size = pFunction[6];
+	desc.graphics.vertex_shader.code_size = pFunction[6];
+	desc.graphics.vertex_shader.format = reshade::api::shader_format::dxbc;
 
 	HRESULT hr = E_FAIL;
-	reshade::invoke_addon_event<reshade::addon_event::create_shader_module>(
-		[this, &hr, ppShader](reshade::api::device *, reshade::api::shader_stage type, reshade::api::shader_format format, const char *, const void *code, size_t) {
-			if (type != reshade::api::shader_stage::vertex || format != reshade::api::shader_format::dxbc)
+	reshade::invoke_addon_event<reshade::addon_event::create_pipeline>(
+		[this, &hr, ppShader](reshade::api::device *, const reshade::api::pipeline_desc &desc) {
+			if (desc.type != reshade::api::pipeline_type::graphics_vertex_shader || desc.graphics.vertex_shader.format != reshade::api::shader_format::dxbc)
 				return false;
-			hr = _orig->CreateVertexShader(static_cast<const DWORD *>(code), ppShader);
+			hr = _orig->CreateVertexShader(static_cast<const DWORD *>(desc.graphics.vertex_shader.code), ppShader);
 			if (SUCCEEDED(hr))
 			{
 				return true;
@@ -1217,8 +1241,11 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateVertexShader(const DWORD *pFunc
 				LOG(WARN) << "IDirect3DDevice9::CreateVertexShader" << " failed with error code " << hr << '.';
 				return false;
 			}
-		}, this, reshade::api::shader_stage::vertex, reshade::api::shader_format::dxbc, nullptr, pFunction, total_size);
+		}, this, desc);
 	return hr;
+#else
+	return _orig->CreateVertexShader(pFunction, ppShader);
+#endif
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::SetVertexShader(IDirect3DVertexShader9 *pShader)
 {
@@ -1335,18 +1362,22 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::GetIndices(IDirect3DIndexBuffer9 **pp
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreatePixelShader(const DWORD *pFunction, IDirect3DPixelShader9 **ppShader)
 {
+#if RESHADE_ADDON
 	if (pFunction == nullptr)
 		return D3DERR_INVALIDCALL;
 
+	reshade::api::pipeline_desc desc = { reshade::api::pipeline_type::graphics_pixel_shader };
+	desc.graphics.pixel_shader.code = pFunction;
 	// Total size is at byte offset 24 (see http://timjones.io/blog/archive/2015/09/02/parsing-direct3d-shader-bytecode)
-	const DWORD total_size = pFunction[6];
+	desc.graphics.pixel_shader.code_size = pFunction[6];
+	desc.graphics.pixel_shader.format = reshade::api::shader_format::dxbc;
 
 	HRESULT hr = E_FAIL;
-	reshade::invoke_addon_event<reshade::addon_event::create_shader_module>(
-		[this, &hr, ppShader](reshade::api::device *, reshade::api::shader_stage type, reshade::api::shader_format format, const char *, const void *code, size_t) {
-			if (type != reshade::api::shader_stage::vertex || format != reshade::api::shader_format::dxbc)
+	reshade::invoke_addon_event<reshade::addon_event::create_pipeline>(
+		[this, &hr, ppShader](reshade::api::device *, const reshade::api::pipeline_desc &desc) {
+			if (desc.type != reshade::api::pipeline_type::graphics_pixel_shader || desc.graphics.pixel_shader.format != reshade::api::shader_format::dxbc)
 				return false;
-			hr = _orig->CreatePixelShader(static_cast<const DWORD *>(code), ppShader);
+			hr = _orig->CreatePixelShader(static_cast<const DWORD *>(desc.graphics.pixel_shader.code), ppShader);
 			if (SUCCEEDED(hr))
 			{
 				return true;
@@ -1356,8 +1387,11 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreatePixelShader(const DWORD *pFunct
 				LOG(WARN) << "IDirect3DDevice9::CreatePixelShader" << " failed with error code " << hr << '.';
 				return false;
 			}
-		}, this, reshade::api::shader_stage::pixel, reshade::api::shader_format::dxbc, nullptr, pFunction, total_size);
+		}, this, desc);
 	return hr;
+#else
+	return _orig->CreatePixelShader(pFunction, ppShader);
+#endif
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::SetPixelShader(IDirect3DPixelShader9 *pShader)
 {
@@ -1452,7 +1486,9 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::ComposeRects(IDirect3DSurface9 *pSrc,
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::PresentEx(const RECT *pSourceRect, const RECT *pDestRect, HWND hDestWindowOverride, const RGNDATA *pDirtyRegion, DWORD dwFlags)
 {
+#if RESHADE_ADDON
 	reshade::invoke_addon_event<reshade::addon_event::present>(this, _implicit_swapchain);
+#endif
 
 	if (Direct3DSwapChain9::is_presenting_entire_surface(pSourceRect, hDestWindowOverride))
 		_implicit_swapchain->on_present();
@@ -1503,6 +1539,8 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CheckDeviceState(HWND hDestinationWin
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateRenderTargetEx(UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle, DWORD Usage)
 {
+	assert(_extended_interface);
+#if RESHADE_ADDON
 	D3DSURFACE_DESC new_desc = { Format, D3DRTYPE_SURFACE, Usage, D3DPOOL_DEFAULT, MultiSample, MultisampleQuality, Width, Height };
 
 	HRESULT hr = E_FAIL;
@@ -1512,16 +1550,11 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateRenderTargetEx(UINT Width, UINT
 				return false;
 			reshade::d3d9::convert_resource_desc(desc, new_desc);
 
-#if RESHADE_ADDON
 			// Need to replace surface with a texture if an add-on requested shader access
 			if ((desc.usage & reshade::api::resource_usage::shader_resource) != reshade::api::resource_usage::undefined)
 				hr = create_surface_replacement(new_desc, ppSurface, pSharedHandle) ? D3D_OK : D3DERR_INVALIDCALL;
 			else
-#endif
-			{
-				assert(_extended_interface);
 				hr = static_cast<IDirect3DDevice9Ex *>(_orig)->CreateRenderTargetEx(new_desc.Width, new_desc.Height, new_desc.Format, new_desc.MultiSampleType, new_desc.MultiSampleQuality, Lockable, ppSurface, pSharedHandle, new_desc.Usage);
-			}
 
 			if (SUCCEEDED(hr))
 			{
@@ -1547,6 +1580,9 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateRenderTargetEx(UINT Width, UINT
 			}
 		}, this, reshade::d3d9::convert_resource_desc(new_desc, 1, _caps), nullptr, reshade::api::resource_usage::render_target);
 	return hr;
+#else
+	return static_cast<IDirect3DDevice9Ex *>(_orig)->CreateRenderTargetEx(Width, Height, Format, MultiSample, MultisampleQuality, Lockable, ppSurface, pSharedHandle, Usage);
+#endif
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateOffscreenPlainSurfaceEx(UINT Width, UINT Height, D3DFORMAT Format, D3DPOOL Pool, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle, DWORD Usage)
 {
@@ -1555,6 +1591,8 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateOffscreenPlainSurfaceEx(UINT Wi
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateDepthStencilSurfaceEx(UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Discard, IDirect3DSurface9 **ppSurface, HANDLE *pSharedHandle, DWORD Usage)
 {
+	assert(_extended_interface);
+#if RESHADE_ADDON
 	D3DSURFACE_DESC new_desc = { Format, D3DRTYPE_SURFACE, Usage, D3DPOOL_DEFAULT, MultiSample, MultisampleQuality, Width, Height };
 
 	HRESULT hr = E_FAIL;
@@ -1564,16 +1602,11 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateDepthStencilSurfaceEx(UINT Widt
 				return false;
 			reshade::d3d9::convert_resource_desc(desc, new_desc);
 
-#if RESHADE_ADDON
 			// Need to replace surface with a texture if an add-on requested shader access
 			if ((desc.usage & reshade::api::resource_usage::shader_resource) != reshade::api::resource_usage::undefined)
 				hr = create_surface_replacement(new_desc, ppSurface, pSharedHandle) ? D3D_OK : D3DERR_INVALIDCALL;
 			else
-#endif
-			{
-				assert(_extended_interface);
 				hr = static_cast<IDirect3DDevice9Ex *>(_orig)->CreateDepthStencilSurfaceEx(new_desc.Width, new_desc.Height, new_desc.Format, new_desc.MultiSampleType, new_desc.MultiSampleQuality, Discard, ppSurface, pSharedHandle, new_desc.Usage);
-			}
 
 			if (SUCCEEDED(hr))
 			{
@@ -1599,6 +1632,9 @@ HRESULT STDMETHODCALLTYPE Direct3DDevice9::CreateDepthStencilSurfaceEx(UINT Widt
 			}
 		}, this, reshade::d3d9::convert_resource_desc(new_desc, 1, _caps), nullptr, reshade::api::resource_usage::depth_stencil);
 	return hr;
+#else
+	return static_cast<IDirect3DDevice9Ex *>(_orig)->CreateDepthStencilSurfaceEx(Width, Height, Format, MultiSample, MultisampleQuality, Discard, ppSurface, pSharedHandle, Usage);
+#endif
 }
 HRESULT STDMETHODCALLTYPE Direct3DDevice9::ResetEx(D3DPRESENT_PARAMETERS *pPresentationParameters, D3DDISPLAYMODEEX *pFullscreenDisplayMode)
 {
