@@ -743,6 +743,63 @@ bool reshade::d3d10::device_impl::map_resource(api::resource resource, uint32_t 
 	*mapped_ptr = 0;
 	return false;
 }
+bool reshade::d3d10::device_impl::map_resource_pitch(api::resource resource, uint32_t subresource, api::map_access access, void** mapped_ptr, uint32_t* row_pitch)
+{
+	D3D10_MAP map_type = static_cast<D3D10_MAP>(0);
+	switch (access)
+	{
+	case api::map_access::read_only:
+		map_type = D3D10_MAP_READ;
+		break;
+	case api::map_access::write_only:
+		map_type = D3D10_MAP_WRITE;
+		break;
+	case api::map_access::read_write:
+		map_type = D3D10_MAP_READ_WRITE;
+		break;
+	case api::map_access::write_discard:
+		map_type = D3D10_MAP_WRITE_DISCARD;
+		break;
+	}
+
+	assert(resource.handle != 0);
+	const auto object = reinterpret_cast<ID3D10Resource*>(resource.handle);
+
+	D3D10_RESOURCE_DIMENSION dimension;
+	object->GetType(&dimension);
+	switch (dimension)
+	{
+	case D3D10_RESOURCE_DIMENSION_BUFFER:
+		assert(subresource == 0);
+		*row_pitch = 0;
+		return SUCCEEDED(static_cast<ID3D10Buffer*>(object)->Map(map_type, 0, mapped_ptr));
+	case D3D10_RESOURCE_DIMENSION_TEXTURE1D:
+		*row_pitch = 0;
+		return SUCCEEDED(static_cast<ID3D10Texture1D*>(object)->Map(subresource, map_type, 0, mapped_ptr));
+	case D3D10_RESOURCE_DIMENSION_TEXTURE2D:
+		if (D3D10_MAPPED_TEXTURE2D mapped;
+			SUCCEEDED(static_cast<ID3D10Texture2D*>(object)->Map(subresource, map_type, 0, &mapped)))
+		{
+			*mapped_ptr = mapped.pData;
+			*row_pitch = mapped.RowPitch;
+			return true;
+		}
+		break;
+	case D3D10_RESOURCE_DIMENSION_TEXTURE3D:
+		if (D3D10_MAPPED_TEXTURE3D mapped;
+			SUCCEEDED(static_cast<ID3D10Texture3D*>(object)->Map(subresource, map_type, 0, &mapped)))
+		{
+			*mapped_ptr = mapped.pData;
+			*row_pitch = mapped.RowPitch;
+			return true;
+		}
+		break;
+	}
+
+	*mapped_ptr = 0;
+	*row_pitch = 0;
+	return false;
+}
 void reshade::d3d10::device_impl::unmap_resource(api::resource resource, uint32_t subresource)
 {
 	assert(resource.handle != 0);

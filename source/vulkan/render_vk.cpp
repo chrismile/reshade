@@ -971,6 +971,40 @@ bool reshade::vulkan::device_impl::map_resource(api::resource resource, uint32_t
 		return false;
 	}
 }
+bool reshade::vulkan::device_impl::map_resource_pitch(api::resource resource, uint32_t subresource, api::map_access, void** mapped_ptr, uint32_t* row_pitch)
+{
+	assert(resource.handle != 0);
+	const resource_data& data = _resources.at(resource.handle);
+
+	if (data.allocation != nullptr)
+	{
+		const resource_data& data = _resources.at(resource.handle);
+
+		if (data.is_image())
+		{ 
+			VkImageSubresource img_subresource;
+			img_subresource.arrayLayer = 0;
+			img_subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			img_subresource.mipLevel = 0;
+			VkSubresourceLayout layout;
+			vk.GetImageSubresourceLayout(_orig, data.image, &img_subresource, &layout);
+			*row_pitch = static_cast<uint32_t>(layout.rowPitch);
+		}
+		else
+		{
+			*row_pitch = 0;
+		}
+
+		assert(subresource == 0);
+		return vmaMapMemory(_alloc, data.allocation, mapped_ptr) == VK_SUCCESS;
+	}
+	else
+	{
+		*row_pitch = 0;
+		*mapped_ptr = nullptr;
+		return false;
+	}
+}
 void reshade::vulkan::device_impl::unmap_resource(api::resource resource, uint32_t subresource)
 {
 	assert(resource.handle != 0);

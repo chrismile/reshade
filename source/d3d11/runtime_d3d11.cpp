@@ -246,6 +246,7 @@ void reshade::d3d11::runtime_impl::on_present()
 		_immediate_context->ResolveSubresource(_backbuffer_resolved.get(), 0, _backbuffer.get(), 0, _backbuffer_format);
 
 	update_and_render_effects();
+	invoke_addon_event<addon_event::present>(get_command_queue(), this);
 	runtime::on_present();
 
 	// Stretch main render target back into MSAA back buffer if MSAA is active

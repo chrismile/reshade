@@ -286,6 +286,7 @@ void reshade::d3d12::runtime_impl::on_present()
 	cmd_list->ResourceBarrier(1, &transition);
 
 	update_and_render_effects();
+	invoke_addon_event<addon_event::present>(get_command_queue(), this);
 	runtime::on_present();
 
 	std::swap(transition.Transition.StateBefore, transition.Transition.StateAfter);

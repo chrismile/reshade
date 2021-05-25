@@ -100,6 +100,12 @@ void reshade::addon::load_addons()
 	LOG(INFO) << "Searching for add-ons (*.addon) in " << addon_search_path << " ...";
 
 	std::error_code ec;
+	if (addon_search_path != g_reshade_base_path)
+	{
+		SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+		AddDllDirectory(addon_search_path.c_str());
+		//SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+	}
 	for (std::filesystem::path path : std::filesystem::directory_iterator(addon_search_path, std::filesystem::directory_options::skip_permission_denied, ec))
 	{
 		if (path.extension() != L".addon")
@@ -109,16 +115,19 @@ void reshade::addon::load_addons()
 
 		const HMODULE handle = LoadLibraryW(path.c_str());
 		if (handle == nullptr)
+		{
+			LOG(WARN) << "Could not load add-on from " << path << " (error code: " << GetLastError() << ").";
 			continue;
+		}
 
 		reshade::addon::info info;
 		info.name = path.stem().u8string();
 		info.handle = handle;
 
-		if (const char *name = reinterpret_cast<const char *>(GetProcAddress(handle, "NAME"));
+		if (const char *name = *reinterpret_cast<const char **>(GetProcAddress(handle, "NAME"));
 			name != nullptr)
 			info.name = name;
-		if (const char *description = reinterpret_cast<const char *>(GetProcAddress(handle, "DESCRIPTION"));
+		if (const char *description = *reinterpret_cast<const char**>(GetProcAddress(handle, "DESCRIPTION"));
 			description != nullptr)
 			info.description = description;
 

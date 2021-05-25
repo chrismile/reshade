@@ -1180,6 +1180,82 @@ bool reshade::opengl::device_impl::map_resource(api::resource resource, uint32_t
 
 	return *mapped_ptr != nullptr;
 }
+bool reshade::opengl::device_impl::map_resource_pitch(api::resource resource, uint32_t subresource, api::map_access access, void** mapped_ptr, uint32_t* row_pitch)
+{
+	GLenum map_access = 0;
+	switch (access)
+	{
+	case api::map_access::read_only:
+		map_access = GL_MAP_READ_BIT;
+		break;
+	case api::map_access::read_write:
+		map_access = GL_MAP_READ_BIT | GL_MAP_WRITE_BIT;
+		break;
+	case api::map_access::write_only:
+		map_access = GL_MAP_WRITE_BIT;
+		break;
+	case api::map_access::write_discard:
+		map_access = GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT;
+		break;
+	}
+
+	const GLenum target = resource.handle >> 40;
+	const GLuint object = resource.handle & 0xFFFFFFFF;
+
+	//if (target == GL_PIXEL_PACK_BUFFER || target == GL_PIXEL_UNPACK_BUFFER)
+	//{
+	//	int width = get_tex_level_param(target, object, 0, GL_TEXTURE_WIDTH);
+	//	*row_pitch = static_cast<uint32_t>(width);
+	//}
+	//else
+	//{
+	//	*row_pitch = 0;
+	//}
+	*row_pitch = 0;
+
+	switch (target)
+	{
+	case GL_BUFFER:
+	case GL_ARRAY_BUFFER:
+	case GL_ELEMENT_ARRAY_BUFFER:
+	case GL_PIXEL_PACK_BUFFER:
+	case GL_PIXEL_UNPACK_BUFFER:
+	case GL_UNIFORM_BUFFER:
+	case GL_TRANSFORM_FEEDBACK_BUFFER:
+	case GL_COPY_READ_BUFFER:
+	case GL_COPY_WRITE_BUFFER:
+	case GL_DRAW_INDIRECT_BUFFER:
+	case GL_SHADER_STORAGE_BUFFER:
+	case GL_DISPATCH_INDIRECT_BUFFER:
+	case GL_QUERY_BUFFER:
+	case GL_ATOMIC_COUNTER_BUFFER:
+		assert(subresource == 0);
+		if (gl3wProcs.gl.MapNamedBuffer != nullptr)
+		{
+			const GLuint length = get_buf_param(target, object, GL_BUFFER_SIZE);
+
+			*mapped_ptr = glMapNamedBufferRange(object, 0, length, map_access);
+		}
+		else
+		{
+			const GLuint length = get_buf_param(target, object, GL_BUFFER_SIZE);
+
+			GLint prev_object = 0;
+			glGetIntegerv(get_binding_for_target(target), &prev_object);
+
+			glBindBuffer(target, object);
+			*mapped_ptr = glMapBufferRange(target, 0, length, map_access);
+			glBindBuffer(target, prev_object);
+		}
+		break;
+	default:
+		assert(false);
+		*mapped_ptr = nullptr;
+		break;
+	}
+
+	return *mapped_ptr != nullptr;
+}
 void reshade::opengl::device_impl::unmap_resource(api::resource resource, uint32_t subresource)
 {
 	const GLenum target = resource.handle >> 40;

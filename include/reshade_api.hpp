@@ -342,6 +342,16 @@ namespace reshade { namespace api
 		/// <returns><c>true</c> if the memory of the resource was successfully mapped, <c>false</c> otherwise (in this case <paramref name="mapped_ptr"/> is set to <c>nullptr</c>).</returns>
 		virtual bool map_resource(resource resource, uint32_t subresource, map_access access, void **mapped_ptr) = 0;
 		/// <summary>
+		/// Maps the memory of a resource into application address space and writes the row pitch to the passed pointer.
+		/// If the mapped object is not a texture, row_pitch will be set to 0.
+		/// </summary>
+		/// <param name="resource">The resource to map.</param>
+		/// <param name="subresource">The index of the subresource.</param>
+		/// <param name="mapped_ptr">Pointer to a pointer that is set to a pointer to the memory of the resource.</param>
+		/// <param name="row_pitch">Pointer that is set to the row pitch of the mapped resource.</param>
+		/// <returns><c>true</c> if the memory of the resource was successfully mapped, <c>false</c> otherwise (in this case <paramref name="mapped_ptr"/> is set to <c>nullptr</c>).</returns>
+		virtual bool map_resource_pitch(api::resource resource, uint32_t subresource, api::map_access access, void** mapped_ptr, uint32_t* row_pitch)=0;
+		/// <summary>
 		/// Unmaps a previously mapped resource.
 		/// </summary>
 		/// <param name="resource">The resource to unmap.</param>
@@ -800,7 +810,13 @@ namespace reshade { namespace api
 		/// </summary>
 		virtual void get_frame_width_and_height(uint32_t *width, uint32_t *height) const = 0;
 
-		/// <summary>
+        /// <summary>
+        /// Create a copy of the current frame image in system memory.
+        /// </summary>
+        /// <param name="buffer">The 32bpp RGBA buffer to save the screenshot to.</param>
+        virtual bool capture_screenshot(uint8_t *buffer) const = 0;
+
+        /// <summary>
 		/// Updates all textures that use the specified <paramref name="semantic"/> in all active effects to new resource view.
 		/// </summary>
 		virtual void update_texture_bindings(const char *semantic, resource_view shader_resource_view) = 0;

@@ -749,7 +749,7 @@ void reshade::d3d11::device_impl::update_descriptor_sets(uint32_t num_updates, c
 	}
 }
 
-bool reshade::d3d11::device_impl::map_resource(api::resource resource, uint32_t subresource, api::map_access access, void **mapped_ptr)
+bool reshade::d3d11::device_impl::map_resource(api::resource resource, uint32_t subresource, api::map_access access, void** mapped_ptr)
 {
 	D3D11_MAP map_type = static_cast<D3D11_MAP>(0);
 	switch (access)
@@ -769,7 +769,7 @@ bool reshade::d3d11::device_impl::map_resource(api::resource resource, uint32_t 
 	}
 
 	if (D3D11_MAPPED_SUBRESOURCE mapped_resource;
-		SUCCEEDED(_immediate_context_orig->Map(reinterpret_cast<ID3D11Resource *>(resource.handle), subresource, map_type, 0, &mapped_resource)))
+		SUCCEEDED(_immediate_context_orig->Map(reinterpret_cast<ID3D11Resource*>(resource.handle), subresource, map_type, 0, &mapped_resource)))
 	{
 		*mapped_ptr = mapped_resource.pData;
 		return true;
@@ -777,6 +777,39 @@ bool reshade::d3d11::device_impl::map_resource(api::resource resource, uint32_t 
 	else
 	{
 		*mapped_ptr = 0;
+		return false;
+	}
+}
+bool reshade::d3d11::device_impl::map_resource_pitch(api::resource resource, uint32_t subresource, api::map_access access, void** mapped_ptr, uint32_t* row_pitch)
+{
+	D3D11_MAP map_type = static_cast<D3D11_MAP>(0);
+	switch (access)
+	{
+	case api::map_access::read_only:
+		map_type = D3D11_MAP_READ;
+		break;
+	case api::map_access::write_only:
+		map_type = D3D11_MAP_WRITE;
+		break;
+	case api::map_access::read_write:
+		map_type = D3D11_MAP_READ_WRITE;
+		break;
+	case api::map_access::write_discard:
+		map_type = D3D11_MAP_WRITE_DISCARD;
+		break;
+	}
+
+	if (D3D11_MAPPED_SUBRESOURCE mapped_resource;
+		SUCCEEDED(_immediate_context_orig->Map(reinterpret_cast<ID3D11Resource*>(resource.handle), subresource, map_type, 0, &mapped_resource)))
+	{
+		*mapped_ptr = mapped_resource.pData;
+		*row_pitch = mapped_resource.RowPitch;
+		return true;
+	}
+	else
+	{
+		*mapped_ptr = 0;
+		*row_pitch = 0;
 		return false;
 	}
 }

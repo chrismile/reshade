@@ -832,12 +832,30 @@ void reshade::d3d12::device_impl::update_descriptor_sets(uint32_t num_updates, c
 	}
 }
 
-bool reshade::d3d12::device_impl::map_resource(api::resource resource, uint32_t subresource, api::map_access access, void **mapped_ptr)
+bool reshade::d3d12::device_impl::map_resource(api::resource resource, uint32_t subresource, api::map_access access, void** mapped_ptr)
 {
 	const D3D12_RANGE no_read_range = { 0, 0 };
 
 	assert(resource.handle != 0);
-	return SUCCEEDED(reinterpret_cast<ID3D12Resource *>(resource.handle)->Map(
+	return SUCCEEDED(reinterpret_cast<ID3D12Resource*>(resource.handle)->Map(
+		subresource, access == api::map_access::write_only || access == api::map_access::write_discard ? &no_read_range : nullptr, mapped_ptr));
+}
+bool reshade::d3d12::device_impl::map_resource_pitch(api::resource resource, uint32_t subresource, api::map_access access, void** mapped_ptr, uint32_t* row_pitch)
+{
+	const D3D12_RANGE no_read_range = { 0, 0 };
+
+	assert(resource.handle != 0);
+	D3D12_RESOURCE_DESC resource_desc = reinterpret_cast<ID3D12Resource*>(resource.handle)->GetDesc();
+	if (resource_desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D || resource_desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
+	{
+		uint32_t width = static_cast<uint32_t>(resource_desc.Width);
+		*row_pitch = (width + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT * D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
+	}
+	else
+	{
+		*row_pitch = 0;
+	}
+	return SUCCEEDED(reinterpret_cast<ID3D12Resource*>(resource.handle)->Map(
 		subresource, access == api::map_access::write_only || access == api::map_access::write_discard ? &no_read_range : nullptr, mapped_ptr));
 }
 void reshade::d3d12::device_impl::unmap_resource(api::resource resource, uint32_t subresource)
@@ -1635,7 +1653,7 @@ void reshade::d3d12::command_list_impl::clear_unordered_access_view_uint(api::re
 		_orig->SetDescriptorHeaps(1, &view_heap);
 
 	_device_impl->_orig->CreateUnorderedAccessView(resource, nullptr, nullptr, table_base);
-	_orig->ClearUnorderedAccessViewUint(table_base_gpu, D3D12_CPU_DESCRIPTOR_HANDLE { uav.handle }, resource, values, 0, nullptr);
+	_orig->ClearUnorderedAccessViewUint(table_base_gpu, D3D12_CPU_DESCRIPTOR_HANDLE { static_cast<SIZE_T>(uav.handle) }, resource, values, 0, nullptr);
 
 	if (_current_descriptor_heaps[0] != view_heap && _current_descriptor_heaps[1] != view_heap && _current_descriptor_heaps[0] != nullptr)
 		_orig->SetDescriptorHeaps(_current_descriptor_heaps[1] != nullptr ? 2 : 1, _current_descriptor_heaps);
@@ -1661,7 +1679,7 @@ void reshade::d3d12::command_list_impl::clear_unordered_access_view_float(api::r
 		_orig->SetDescriptorHeaps(1, &view_heap);
 
 	_device_impl->_orig->CreateUnorderedAccessView(resource, nullptr, nullptr, table_base);
-	_orig->ClearUnorderedAccessViewFloat(table_base_gpu, D3D12_CPU_DESCRIPTOR_HANDLE { uav.handle }, resource, values, 0, nullptr);
+	_orig->ClearUnorderedAccessViewFloat(table_base_gpu, D3D12_CPU_DESCRIPTOR_HANDLE { static_cast<SIZE_T>(uav.handle) }, resource, values, 0, nullptr);
 
 	if (_current_descriptor_heaps[0] != view_heap && _current_descriptor_heaps[1] != view_heap && _current_descriptor_heaps[0] != nullptr)
 		_orig->SetDescriptorHeaps(_current_descriptor_heaps[1] != nullptr ? 2 : 1, _current_descriptor_heaps);
