@@ -1021,8 +1021,6 @@ bool reshade::vulkan::device_impl::map_resource_pitch(api::resource resource, ui
 
 	if (res_data.allocation != nullptr)
 	{
-		const resource_data &res_data = _resources.at(resource.handle);
-
 		if (res_data.is_image())
 		{
 			VkImageSubresource img_subresource;
